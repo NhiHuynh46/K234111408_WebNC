@@ -41,6 +41,10 @@ export class Ex50Component implements OnInit {
         this.loading.set(true);
         this.bookService.getAllBooks().subscribe({
             next: (data) => {
+                console.log('📚 Books loaded from API:', data);
+                console.log('📖 First book:', data[0]);
+                console.log('💰 First book price:', data[0]?.giaBan);
+                console.log('📝 First book name:', data[0]?.tenSach);
                 this.books.set(data);
                 this.loading.set(false);
             },
@@ -76,19 +80,52 @@ export class Ex50Component implements OnInit {
 
     onDeleteConfirm() {
         const book = this.bookToDelete();
-        if (book && book.id) {
-            this.bookService.deleteBook(book.id).subscribe({
-                next: () => {
+        console.log('🗑️ Delete confirm called');
+
+        if (!book) {
+            console.error('❌ No book selected for deletion');
+            this.showDeleteConfirm.set(false);
+            return;
+        }
+
+        console.log('📚 Book to delete:', book);
+        // Ensure ID is a number
+        const bookId = Number(book.id);
+        console.log('🔖 Book ID (parsed):', bookId);
+
+        if (bookId) {
+            console.log('🗑️ Calling delete API for book ID:', bookId);
+            this.bookService.deleteBook(bookId).subscribe({
+                next: (response) => {
+                    console.log('✅ Delete successful:', response);
                     this.displayToast(`✅ Đã xóa "${book.tenSach}" thành công`);
-                    this.loadBooks();
+
+                    // Close modal first
                     this.showDeleteConfirm.set(false);
                     this.bookToDelete.set(null);
+
+                    // Then reload list
+                    this.loadBooks();
                 },
                 error: (error) => {
-                    console.error('Error deleting book:', error);
-                    this.displayToast('❌ Lỗi khi xóa sách');
+                    console.error('❌ Error deleting book:', error);
+                    this.displayToast('❌ Lỗi khi xóa sách. Vui lòng thử lại.');
                 }
+            }).add(() => {
+                // Finalize: always close modal and clean up
+                console.log('🏁 Delete operation finalized');
+                this.showDeleteConfirm.set(false);
+                this.bookToDelete.set(null);
+                this.loading.set(false);
             });
+        } else {
+            console.error('❌ Cannot delete: Invalid book ID:', book.id);
+            this.displayToast('⚠️ Sách lỗi (không có ID). Đang làm mới danh sách...');
+
+            // Force close modal even on error
+            this.showDeleteConfirm.set(false);
+            this.bookToDelete.set(null);
+            this.loadBooks();
         }
     }
 
@@ -98,7 +135,13 @@ export class Ex50Component implements OnInit {
     }
 
     onFormSubmit(book: Book) {
+        console.log('🔄 onFormSubmit called');
+        console.log('📝 Form mode:', this.formMode());
+        console.log('📚 Received book data:', book);
+        console.log('🔖 Selected book:', this.selectedBook());
+
         if (this.formMode() === 'create') {
+            console.log('➕ Creating new book...');
             this.bookService.createBook(book).subscribe({
                 next: () => {
                     this.displayToast('✅ Tạo mới sách thành công');
@@ -106,24 +149,31 @@ export class Ex50Component implements OnInit {
                     this.currentView.set('list');
                 },
                 error: (error) => {
-                    console.error('Error creating book:', error);
+                    console.error('❌ Error creating book:', error);
                     this.displayToast('❌ Lỗi khi tạo sách');
                 }
             });
         } else {
             const bookId = this.selectedBook()?.id;
+            console.log('✏️ Updating book with ID:', bookId);
             if (bookId) {
-                this.bookService.updateBook(bookId, book).subscribe({
-                    next: () => {
+                // Ensure the ID is included in the update
+                const bookWithId = { ...book, id: bookId };
+                console.log('📤 Sending update with data:', bookWithId);
+                this.bookService.updateBook(bookId, bookWithId).subscribe({
+                    next: (response) => {
+                        console.log('✅ Update successful:', response);
                         this.displayToast('✅ Cập nhật sách thành công');
                         this.loadBooks();
                         this.currentView.set('list');
                     },
                     error: (error) => {
-                        console.error('Error updating book:', error);
+                        console.error('❌ Error updating book:', error);
                         this.displayToast('❌ Lỗi khi cập nhật sách');
                     }
                 });
+            } else {
+                console.error('❌ No book ID found for update');
             }
         }
     }
